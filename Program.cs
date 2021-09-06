@@ -38,28 +38,28 @@ namespace PostgreSQL
 			//newTable2();
 
 			/***** LISTパーティションのあるテーブル作成 *****/
-			listTable();
+			//listTable();
 			// メインテーブル下にパーティションを作成
-			listPartition("data_a");
+			//listPartition("numeric_a");
 			// データを追加
-			listData();
+			//listData();
 
 			/***** RANGEパーティションがあるテーブル作成 *****/
 			//rangeTable();
 			// メインテーブル下にパーティションを作成
-			//rangePartition("range_data");
+			//rangePartition("range_numeric");
 			// データを追加
 			//rangeData();
 
 			/***** 日付情報の年だけを見るLISTパーティションがあるテーブルの作成 *****/
-			//listDateTable();
+			listDateTable();
 			// メインテーブル下にパーティションを作成
-			//listDatePartition();
+			listDatePartition();
 			// データを追加
-			//listDateData();
+			listDateData();
 
 			// テーブルの削除
-			//dropTable();
+			dropTable();
 
 		}
 
@@ -154,7 +154,7 @@ namespace PostgreSQL
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, data integer)", con);
+			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -173,7 +173,7 @@ namespace PostgreSQL
 
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new(@"CREATE TABLE IF NOT EXISTS ""data""(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, data integer)", con);
+			using NpgsqlCommand cmd = new(@"CREATE TABLE IF NOT EXISTS ""data""(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -192,7 +192,7 @@ namespace PostgreSQL
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, data integer) PARTITION BY LIST (name)", con);
+			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (name)", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -232,9 +232,9 @@ namespace PostgreSQL
 			cmd.Connection = con;
 			try
 			{
-				cmd.CommandText = @"INSERT INTO ""data""(name, data) VALUES ('a', 1);";
+				cmd.CommandText = @"INSERT INTO ""data""(name, numeric) VALUES ('a', 1);";
 				var result1 = cmd.ExecuteNonQuery();
-				cmd.CommandText = @"INSERT INTO ""data""(name, data) VALUES ('b', 2);";
+				cmd.CommandText = @"INSERT INTO ""data""(name, numeric) VALUES ('b', 2);";
 				var result2 = cmd.ExecuteNonQuery();
 			}
 			catch (PostgresException exc)
@@ -255,7 +255,7 @@ namespace PostgreSQL
 
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, data integer) PARTITION BY RANGE (data)", con);
+			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY RANGE (numeric)", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -304,9 +304,9 @@ namespace PostgreSQL
 			cmd.Connection = con;
 			try
 			{
-				cmd.CommandText = @"INSERT INTO ""data""(name, data) VALUES ('a', 1);";
+				cmd.CommandText = @"INSERT INTO ""data""(name, numeric) VALUES ('a', 1);";
 				var result1 = cmd.ExecuteNonQuery();
-				cmd.CommandText = @"INSERT INTO ""data""(name, data) VALUES ('b', 10);";
+				cmd.CommandText = @"INSERT INTO ""data""(name, numeric) VALUES ('b', 10);";
 				var result2 = cmd.ExecuteNonQuery();
 			}
 			catch (PostgresException exc)
@@ -326,7 +326,7 @@ namespace PostgreSQL
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, data integer) PARTITION BY LIST (date_part('year', time))", con);
+			using NpgsqlCommand cmd = new(@"CREATE TABLE ""data""(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (date_part('year', time))", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -366,10 +366,10 @@ namespace PostgreSQL
 			try
 			{
 				// 日付は自動取得でINSERT
-				cmd.CommandText = @"INSERT INTO ""data""(name, data) VALUES ('a', 1);";
+				cmd.CommandText = @"INSERT INTO ""data""(name, numeric) VALUES ('a', 1);";
 				var result1 = cmd.ExecuteNonQuery();
 				// 日付を指定してINSERT
-				cmd.CommandText = @"INSERT INTO ""data""(time, name, data) VALUES ('2020-10-10 10:20:30', 'b', 2);";
+				cmd.CommandText = @"INSERT INTO ""data""(time, name, numeric) VALUES ('2020-10-10 10:20:30', 'b', 2);";
 				var result2 = cmd.ExecuteNonQuery();
 			}
 			catch (PostgresException exc)
