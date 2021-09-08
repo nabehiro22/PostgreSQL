@@ -1,5 +1,6 @@
 ﻿using Npgsql;
 using System;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -52,14 +53,23 @@ namespace PostgreSQL
 			//rangeData();
 
 			/***** 日付情報の年だけを見るLISTパーティションがあるテーブルの作成 *****/
-			listDateTable();
+			//listDateTable();
 			// メインテーブル下にパーティションを作成
-			listDatePartition();
+			//listDatePartition();
 			// データを追加
-			listDateData();
+			//listDateData();
 
+			/***** INSERTのやり方 *****/
+			// テーブルを作るのは前回の使いまわし
+			//newTable1();
+			// シンプルなINSERTのやり方
+			//insert1("a", 1);
+			// SQLインジェクションを避ける方法その１
+			//insert2();
+			// SQLインジェクションを避ける方法その2
+			//insert3();
 			// テーブルの削除
-			dropTable();
+			//dropTable();
 
 		}
 
@@ -380,6 +390,52 @@ namespace PostgreSQL
 			}
 		}
 		#endregion
+		#endregion
+
+		#region INSERT
+		static void insert1(string insertName, int insertNumeric)
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using var cmd = new NpgsqlCommand($"INSERT INTO data(name, numeric) VALUES ({insertName}, {insertNumeric})", con);
+			int result = cmd.ExecuteNonQuery();
+		}
+
+		static void insert2()
+		{
+			// SQLインジェクションを避けるには有効な手段である 
+			// クエリとパラメータ・データは別に送信されSQLと判断されない
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using var cmd = new NpgsqlCommand("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
+			// 単発ならこれが簡単
+			cmd.Parameters.AddWithValue("insert_name", "a");
+			cmd.Parameters.AddWithValue("insert_numeric", 1);
+			int result1 = cmd.ExecuteNonQuery();
+			cmd.Parameters.Clear();
+			cmd.Parameters.AddWithValue("insert_name", "b");
+			cmd.Parameters.AddWithValue("insert_numeric", 2);
+			int result2 = cmd.ExecuteNonQuery();
+		}
+
+		static void insert3()
+		{
+			// SQLインジェクションを避けるには有効な手段である 
+			// クエリとパラメータ・データは別に送信されSQLと判断されない
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using var cmd = new NpgsqlCommand("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
+			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
+			cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
+			cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
+			// INSERTする値をセット
+			cmd.Parameters["insert_name"].Value = "b";
+			cmd.Parameters["insert_numeric"].Value = 2;
+			int result1 = cmd.ExecuteNonQuery();
+			cmd.Parameters["insert_name"].Value = "c";
+			cmd.Parameters["insert_numeric"].Value = 3;
+			int result2 = cmd.ExecuteNonQuery();
+		}
 		#endregion
 	}
 }
