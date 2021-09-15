@@ -74,7 +74,7 @@ namespace PostgreSQL
 			//insert3();
 
 			// 配列(SELECTの例を含む)
-			//insert4();
+			insert4();
 
 
 			/***** SELECTのやり方 *****/
@@ -515,7 +515,10 @@ namespace PostgreSQL
 			using NpgsqlDataReader rd = cmd.ExecuteReader();
 			while (rd.Read())
 			{
-				List<bool> resut = new((bool[])rd["result"]);
+				bool[] result1 = (bool[])rd["result"];
+				bool[] result2 = rd.GetFieldValue<bool[]>("result");
+				List<bool> result3 = new((bool[])rd["result"]);
+				List<bool> result4 = new(rd.GetFieldValue<bool[]>("result"));
 			}
 		}
 		#endregion
