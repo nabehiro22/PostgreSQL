@@ -74,7 +74,7 @@ namespace PostgreSQL
 			//insert3();
 
 			// 配列(SELECTの例を含む)
-			insert4();
+			//insert4();
 
 
 			/***** SELECTのやり方 *****/
@@ -108,6 +108,9 @@ namespace PostgreSQL
 			// SQLインジェクションを避ける方法(の基になる手法)
 			//select10();
 
+			/***** トランザクションのやり方 *****/
+			transaction1();
+			//transaction2();
 
 			/***** テーブルの削除 *****/
 			dropTable();
@@ -642,7 +645,7 @@ namespace PostgreSQL
 				{
 					// PostgreSQLではinteger型をGetInt16で取得可能だが符号あり16bitで表現できる数値以上だと例外「OverflowException」となる。
 					//Console.WriteLine($"id:{rd.GetInt16(0)} name:{rd.GetString(1)}　numeric:{rd.GetInt32(2)}");
-					// GetInt16,GetStringなどは引数にカラム名を用いて明確にできる
+					// GetInt16,GetStringなどは引数にカラム名を用いて明確にできる(using System.Data;が必要)
 					Console.WriteLine($"id:{rd.GetInt16("id")} name:{rd.GetString("name")}　numeric:{rd.GetInt32("numeric")}");
 					// 数値をGetStringで取得すると「InvalidCastException」が発生する
 					//Console.WriteLine($"id:{rd.GetInt16("id")} name:{rd.GetString("name")}　numeric:{rd.GetString("numeric")}");
@@ -792,8 +795,63 @@ namespace PostgreSQL
 				Console.WriteLine($"name:{rd["name"]} numeric:{rd["numeric"]}");
 			}
 		}
+		#endregion
 
+		#region Transaction
+		/// <summary>
+		/// トランザクションを利用する(その1)
+		/// </summary>
+		static void transaction1()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			// con.Open()前に行うと例外「InvalidOperationException」になる。
+			using NpgsqlTransaction tran = con.BeginTransaction();
+			try
+			{
+				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+				_ = cmd.ExecuteNonQuery();
+				// データをINSERTする
+				cmd.CommandText = "INSERT INTO data(name, numeric) VALUES ('a', 1);";
+				int result1 = cmd.ExecuteNonQuery();
+				cmd.CommandText = "INSERT INTO data(name, numeric) VALUES ('b', 2);";
+				int result2 = cmd.ExecuteNonQuery();
+				tran.Commit();
+				// Commitメソッドが実行（成功）した後にRollbackメソッドを実行しても例外「InvalidOperationException」になる。
+				//tran.Rollback();
+			}
+			catch (PostgresException)
+			{
+				tran.Rollback();
+			}
+		}
 
+		/// <summary>
+		/// トランザクションを利用する(その2)
+		/// </summary>
+		static void transaction2()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			// con.Open()前に行うと例外「InvalidOperationException」になる。
+			using NpgsqlTransaction tran = con.BeginTransaction();
+			try
+			{
+				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+				cmd.Transaction = tran;
+				_ = cmd.ExecuteNonQuery();
+				// データをINSERTする
+				cmd.CommandText = "INSERT INTO data(name, numeric) VALUES ('a', 1);";
+				int result1 = cmd.ExecuteNonQuery();
+				cmd.CommandText = "INSERT INTO data(name, numeric) VALUES ('b', 2);";
+				int result2 = cmd.ExecuteNonQuery();
+				cmd.Transaction.Commit();
+			}
+			catch (PostgresException)
+			{
+				tran.Rollback();
+			}
+		}
 
 		#endregion
 	}
