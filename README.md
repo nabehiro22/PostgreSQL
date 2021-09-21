@@ -1,0 +1,3 @@
+#C#でNpgsqlを使う手法
+でPostgreSQLでEntityFrameworkを使用せずNpgsqlを使いアクセスする手法です。  
+併せてPostgreSQLのパーティションテーブルの作り方に関して幾つかサンプルを作ってみました。
