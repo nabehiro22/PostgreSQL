@@ -3,6 +3,8 @@ using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
+using System.Net.NetworkInformation;
 using System.Reflection.PortableExecutable;
 using System.Threading;
 using System.Threading.Tasks;
@@ -109,11 +111,17 @@ namespace PostgreSQL
 			//select10();
 
 			/***** トランザクションのやり方 *****/
-			transaction1();
+			//transaction1();
 			//transaction2();
 
+			/***** prepare実験 *****/
+			//selectTest1();
+			//selectTest2();
+			//selectTest3();
+			//selectTest4();
+
 			/***** テーブルの削除 *****/
-			dropTable();
+			//dropTable();
 		}
 
 		#region 接続
@@ -179,25 +187,6 @@ namespace PostgreSQL
 			cmd.Connection.Close();
 		}
 		#endregion
-
-		/// <summary>
-		/// テーブルを削除
-		/// </summary>
-		static void dropTable()
-		{
-			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
-			con.Open();
-			using NpgsqlCommand cmd = new("DROP TABLE IF EXISTS data;", con);
-			try
-			{
-				_ = cmd.ExecuteNonQuery();
-			}
-			catch (PostgresException exc)
-			{
-				// 「IF EXISTS」を加えないと存在しないテーブルを削除で例外
-				string msg = exc.Message;
-			}
-		}
 
 		#region テーブルの作成
 		/// <summary>
@@ -854,5 +843,164 @@ namespace PostgreSQL
 		}
 
 		#endregion
+
+		#region Prepare
+		/// <summary>
+		/// Prepare実験用データ生成
+		/// </summary>
+		static void prepare()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new("CREATE TABLE IF NOT EXISTS data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+			_ = cmd.ExecuteNonQuery();
+			for (int i = 0; i < 1000; i++)
+			{
+				cmd.CommandText = $"INSERT INTO data(name, numeric) VALUES ('name_{i}', {i});";
+				_ = cmd.ExecuteNonQuery();
+			}
+			tran.Commit();
+		}
+
+		/// <summary>
+		/// SELECT文の繰り返し
+		/// </summary>
+		static void selectTest1()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+			List<TimeSpan> time = new();
+			for (int i = 0; i < 1000; i++)
+			{
+				sw.Start();
+				for (int j = 0; j < 1000; j++)
+				{
+					cmd.CommandText = $"SELECT name FROM data WHERE numeric = {j};";
+					using NpgsqlDataReader rd = cmd.ExecuteReader();
+					rd.Read();
+					string result = rd.GetString("name");
+				}
+				sw.Stop();
+				time.Add(sw.Elapsed);
+				sw.Reset();
+			}
+			Console.WriteLine($"通常のSELECT繰り返し：{time.Average(t => t.TotalSeconds)}");
+		}
+
+		/// <summary>
+		/// WHEREの条件をパラメータ化
+		/// </summary>
+		static void selectTest2()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+			List<TimeSpan> time = new();
+			cmd.CommandText = "SELECT name FROM data WHERE numeric = @n;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("n", NpgsqlDbType.Integer));
+			for (int i = 0; i < 1000; i++)
+			{
+				sw.Start();
+				for (int j = 0; j < 1000; j++)
+				{
+					cmd.Parameters["n"].Value = j;
+					using NpgsqlDataReader rd = cmd.ExecuteReader();
+					rd.Read();
+					string result = rd.GetString("name");
+				}
+				sw.Stop();
+				time.Add(sw.Elapsed);
+				sw.Reset();
+			}
+			Console.WriteLine($"WHEREをパラメータにする：{time.Average(t => t.TotalSeconds)}");
+		}
+
+		/// <summary>
+		/// Prepareメソッドを実行
+		/// </summary>
+		static void selectTest3()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+			List<TimeSpan> time = new();
+			cmd.CommandText = "SELECT name FROM data WHERE numeric = @n;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("n", NpgsqlDbType.Integer));
+			cmd.Prepare();
+			for (int i = 0; i < 1000; i++)
+			{
+				sw.Start();
+				for (int j = 0; j < 1000; j++)
+				{
+					cmd.Parameters["n"].Value = j;
+					using NpgsqlDataReader rd = cmd.ExecuteReader();
+					rd.Read();
+					string result = rd.GetString("name");
+				}
+				sw.Stop();
+				time.Add(sw.Elapsed);
+				sw.Reset();
+			}
+			Console.WriteLine($"Prepareメソッドを使う：{time.Average(t => t.TotalSeconds)}");
+		}
+
+		/// <summary>
+		/// 接続文字列に「Max Auto Prepare」を設定
+		/// </summary>
+		static void selectTest4()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
+			List<TimeSpan> time = new();
+			cmd.CommandText = "SELECT name FROM data WHERE numeric = @n;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("n", NpgsqlDbType.Integer));
+			for (int i = 0; i < 1000; i++)
+			{
+				sw.Start();
+				for (int j = 0; j < 1000; j++)
+				{
+					cmd.Parameters["n"].Value = j;
+					using NpgsqlDataReader rd = cmd.ExecuteReader();
+					rd.Read();
+					string result = rd.GetString("name");
+				}
+				sw.Stop();
+				time.Add(sw.Elapsed);
+				sw.Reset();
+			}
+			Console.WriteLine($"Max Auto PrepareはあるがPrepareメソッドがない：{time.Average(t => t.TotalSeconds)}");
+		}
+		#endregion
+
+
+		/// <summary>
+		/// テーブルを削除
+		/// </summary>
+		static void dropTable()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("DROP TABLE IF EXISTS data;", con);
+			try
+			{
+				_ = cmd.ExecuteNonQuery();
+			}
+			catch (PostgresException exc)
+			{
+				// 「IF EXISTS」を加えないと存在しないテーブルを削除で例外
+				string msg = exc.Message;
+			}
+		}
 	}
 }
