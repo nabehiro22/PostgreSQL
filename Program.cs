@@ -8,6 +8,7 @@ using System.Net.NetworkInformation;
 using System.Reflection.PortableExecutable;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace PostgreSQL
 {
@@ -119,6 +120,19 @@ namespace PostgreSQL
 			//selectTest2();
 			//selectTest3();
 			//selectTest4();
+
+			/***** NpgsqlDataAdapter実験 *****/
+			//dataAdapterSelect1();
+			//dataAdapterSelect2();
+			//dataAdapterSelect3();
+			//dataAdapterInsert1();
+			//dataAdapterInsert2();
+			//dataAdapterInsert3();
+			//dataAdapterUpdate1();
+			//dataAdapterUpdate2();
+			//dataAdapterUpdate3();
+			//dataAdapterDelete1(); 
+			//dataAdapterDelete2();
 
 			/***** テーブルの削除 *****/
 			//dropTable();
@@ -453,12 +467,12 @@ namespace PostgreSQL
 			// SQLインジェクション対策
 			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
 			// 単発ならこれが簡単
-			cmd.Parameters.AddWithValue("insert_name", "a");
-			cmd.Parameters.AddWithValue("insert_numeric", 1);
+			_ = cmd.Parameters.AddWithValue("insert_name", "a");
+			_ = cmd.Parameters.AddWithValue("insert_numeric", 1);
 			int result1 = cmd.ExecuteNonQuery();
 			cmd.Parameters.Clear();
-			cmd.Parameters.AddWithValue("insert_name", "b");
-			cmd.Parameters.AddWithValue("insert_numeric", 2);
+			_ = cmd.Parameters.AddWithValue("insert_name", "b");
+			_ = cmd.Parameters.AddWithValue("insert_numeric", 2);
 			int result2 = cmd.ExecuteNonQuery();
 		}
 
@@ -474,8 +488,8 @@ namespace PostgreSQL
 			// SQLインジェクション対策
 			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
 			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
-			cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
-			cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
 			// INSERTする値をセット
 			cmd.Parameters["insert_name"].Value = "b";
 			cmd.Parameters["insert_numeric"].Value = 2;
@@ -776,7 +790,7 @@ namespace PostgreSQL
 			con.Open();
 			// SQLインジェクション対策
 			using NpgsqlCommand cmd = new($"SELECT * FROM data WHERE name = @data_name;", con);
-			cmd.Parameters.Add(new NpgsqlParameter("data_name", DbType.String));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("data_name", DbType.String));
 			cmd.Parameters["data_name"].Value = "a";
 			using NpgsqlDataReader rd = cmd.ExecuteReader();
 			while (rd.Read())
@@ -983,6 +997,308 @@ namespace PostgreSQL
 		}
 		#endregion
 
+		#region NpgsqlDataAdapter
+		/// <summary>
+		///  NpgsqlDataAdapterを使ったSELECTその１
+		/// </summary>
+		static void dataAdapterSelect1()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter adp = new("SELECT * FROM data;", con);
+			// これでもOK
+			//using NpgsqlDataAdapter adp = new("SELECT * FROM data;", "Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			var result = adp.Fill(dt);
+			Console.WriteLine($"{dt.Columns[0].ColumnName},{dt.Columns[1].ColumnName},{dt.Columns[2].ColumnName},{dt.Columns[3].ColumnName}");
+			for (int i = 0; i < dt.Rows.Count; i++)
+			{
+				Console.WriteLine($"{dt.Rows[i][0]},{dt.Rows[i][1]},{dt.Rows[i][2]},{dt.Rows[i][3]}");
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使ったSELECTその2(取得するデータを指定)
+		/// </summary>
+		static void dataAdapterSelect2()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter adp = new("SELECT name FROM data;", con);
+			var result = adp.Fill(dt);
+			// 取得可能なカラム数は「dt.Columns.Count」で取得可能
+			Console.WriteLine($"{dt.Columns[0].ColumnName}");
+			for (int i = 0; i < dt.Rows.Count; i++)
+			{
+				Console.WriteLine($"{dt.Rows[i][0]}");
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使ったSELECTその3(取得する条件を指定)
+		/// </summary>
+		static void dataAdapterSelect3()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter adp = new("SELECT * FROM data WHERE name = 'a';", con);
+			var result = adp.Fill(dt);
+			Console.WriteLine($"{dt.Columns[0].ColumnName},{dt.Columns[1].ColumnName},{dt.Columns[2].ColumnName},{dt.Columns[3].ColumnName}");
+			for (int i = 0; i < dt.Rows.Count; i++)
+			{
+				Console.WriteLine($"{dt.Rows[i][0]},{dt.Rows[i][1]},{dt.Rows[i][2]},{dt.Rows[i][3]}");
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使ったINSERT
+		/// </summary>
+		static void dataAdapterInsert1()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// DataTableにデータの追加
+			DataRow addRow = dt.NewRow();
+			addRow[dt.Columns[2].ColumnName] = "c";
+			addRow[dt.Columns[3].ColumnName] = 3;
+			dt.Rows.Add(addRow);
+			// データベースにINSERTするNpgsqlCommandを追加
+			using NpgsqlCommand insertCommand = new();
+			insertCommand.Connection = con;
+			insertCommand.CommandText = "INSERT INTO data(name, numeric) VALUES(@Name, @Numeric)";
+			// 「name」をINSERTするNpgsqlParameterを作成して追加
+			NpgsqlParameter insertName = new();
+			insertName.ParameterName = "@Name";
+			insertName.SourceColumn = "name";
+			_ = insertCommand.Parameters.Add(insertName);
+			// 「numeric」をINSERTするNpgsqlParameterを作成して追加
+			NpgsqlParameter insertNumeric = new();
+			insertNumeric.ParameterName = "@Numeric";
+			insertNumeric.SourceColumn = "numeric";
+			_ = insertCommand.Parameters.Add(insertNumeric);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.InsertCommand = insertCommand;
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使いNpgsqlCommandBuilderでクエリを自動生成してINSERT(自動時刻にデータが入らない)
+		/// </summary>
+		static void dataAdapterInsert2()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// DataTableにデータの追加
+			DataRow addRow = dt.NewRow();
+			addRow[dt.Columns[2].ColumnName] = "c";
+			addRow[dt.Columns[3].ColumnName] = 3;
+			dt.Rows.Add(addRow);
+			// NpgsqlCommandBuilderを使うとカラム名「time」の自動時刻挿入「timestamp DEFAULT clock_timestamp()」がnullとなる。
+			// NpgsqlCommandBuilderで生成されたクエリを見ると「INSERT INTO "db_PostgreTest"."public"."data" ("time", "name", "numeric") VALUES (@p1, @p2, @p3)」
+			using NpgsqlCommandBuilder cb = new(nda);
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+			// これで実行されているクエリ文が分かる
+			string str = cb.GetInsertCommand().CommandText;
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使いNpgsqlCommandBuilderでクエリを自動生成してINSERT(自動採番のidは何もしない)
+		/// </summary>
+		static void dataAdapterInsert3()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			// idは取得するがINSERTには含まれない
+			using NpgsqlDataAdapter nda = new("SELECT id, name, numeric FROM data;", con);
+			var result = nda.Fill(dt);
+			// DataTableにデータの追加
+			DataRow addRow = dt.NewRow();
+			addRow[dt.Columns[1].ColumnName] = "c";
+			addRow[dt.Columns[2].ColumnName] = 3;
+			dt.Rows.Add(addRow);
+			using NpgsqlCommandBuilder cb = new(nda);
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+			// これで実行されているクエリ文が分かる「INSERT INTO "db_PostgreTest"."public"."data" ("name", "numeric") VALUES (@p1, @p2)」
+			string str = cb.GetInsertCommand().CommandText;
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使ったUPDATE
+		/// </summary>
+		static void dataAdapterUpdate1()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// データを更新
+			dt.Rows[0][3] = 100;
+			// データベースにUPDATEするNpgsqlCommandを追加
+			using NpgsqlCommand updateCommand = new();
+			updateCommand.Connection = con;
+			updateCommand.CommandText = "UPDATE data SET Numeric = @Numeric WHERE id = @id";
+			// 「id」を条件としてUPDATするNpgsqlParameterを作成して追加
+			NpgsqlParameter updateId = new();
+			updateId.ParameterName = "@id";
+			updateId.SourceColumn = "id";
+			_ = updateCommand.Parameters.Add(updateId);
+			// UPDATEする「numeric」のNpgsqlParameterを作成して追加
+			NpgsqlParameter updateNumeric = new();
+			updateNumeric.ParameterName = "@Numeric";
+			updateNumeric.SourceColumn = "numeric";
+			_ = updateCommand.Parameters.Add(updateNumeric);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.UpdateCommand = updateCommand;
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使いNpgsqlCommandBuilderでクエリを自動生成してUPDATE
+		/// </summary>
+		static void dataAdapterUpdate2()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// データを更新
+			dt.Rows[0][3] = 100;
+			using NpgsqlCommandBuilder cb = new(nda);
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+			// これで実行されているクエリ文が分かる「UPDATE "db_PostgreTest"."public"."data" SET "time" = @p1, "name" = @p2, "numeric" = @p3 WHERE (("id" = @p4) AND ((@p5 = 1 AND "time" IS NULL) OR ("time" = @p6)) AND ((@p7 = 1 AND "name" IS NULL) OR ("name" = @p8)) AND ((@p9 = 1 AND "numeric" IS NULL) OR ("numeric" = @p10)))」
+			string str = cb.GetUpdateCommand().CommandText;
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使いNpgsqlCommandBuilderでクエリを自動生成してUPDATE
+		/// </summary>
+		static void dataAdapterUpdate3()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT id, name, numeric FROM data;", con);
+			var result = nda.Fill(dt);
+			// データを更新
+			dt.Rows[0][2] = 100;
+			using NpgsqlCommandBuilder cb = new(nda);
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+			// これで実行されているクエリ文が分かる「UPDATE "db_PostgreTest"."public"."data" SET "name" = @p1, "numeric" = @p2 WHERE (("id" = @p3) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))"」
+			string str = cb.GetUpdateCommand().CommandText;
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使ったDELETE
+		/// </summary>
+		static void dataAdapterDelete1()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// データを削除
+			dt.Rows[0].Delete();
+			// データベースにUPDATEするNpgsqlCommandを追加
+			using NpgsqlCommand deleteCommand = new();
+			deleteCommand.Connection = con;
+			deleteCommand.CommandText = "DELETE FROM data WHERE id = @id";
+			// 「id」を条件としてUPDATするNpgsqlParameterを作成して追加
+			NpgsqlParameter deleteId = new();
+			deleteId.ParameterName = "@id";
+			deleteId.SourceColumn = "id";
+			_ = deleteCommand.Parameters.Add(deleteId);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.DeleteCommand = deleteCommand;
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+		}
+
+		/// <summary>
+		/// NpgsqlDataAdapterを使いNpgsqlCommandBuilderでクエリを自動生成してDELETE
+		/// </summary>
+		static void dataAdapterDelete2()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			var result = nda.Fill(dt);
+			// データを削除
+			dt.Rows[0].Delete();
+			using NpgsqlCommandBuilder cb = new(nda);
+			try
+			{
+				result = nda.Update(dt);
+			}
+			catch (DBConcurrencyException)
+			{
+				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
+			}
+			// これで実行されているクエリ文が分かる「DELETE FROM "db_PostgreTest"."public"."data" WHERE (("id" = @p1) AND ((@p2 = 1 AND "time" IS NULL) OR ("time" = @p3)) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))"」
+			string str = cb.GetDeleteCommand().CommandText;
+		}
+
+		#endregion
 
 		/// <summary>
 		/// テーブルを削除
