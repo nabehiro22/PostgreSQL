@@ -14,3 +14,4 @@ C#＋PostgreSQLでEntityFrameworkを使用せずNpgsqlを使いアクセスす�
 [C#でNpgsqlを使ってPostgreSQLへアクセス【SELECT】](https://nabehiro-soft.com/entry/2021/09/14/121941)  
 [C#でNpgsqlを使ってPostgreSQLへアクセス【Transaction】](https://nabehiro-soft.com/entry/2021/09/21/111141)  
 [C#でNpgsqlを使ってPostgreSQLへアクセス【Prepare】](https://nabehiro-soft.com/entry/2021/09/24/180933)  
+[C#でNpgsqlを使ってPostgreSQLへアクセス【NpgsqlDataAdapterでSELECT】](https://nabehiro-soft.com/entry/2021/10/01/103245)
