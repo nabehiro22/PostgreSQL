@@ -134,8 +134,15 @@ namespace PostgreSQL
 			//dataAdapterDelete1(); 
 			//dataAdapterDelete2();
 
+			newTable2();
+			binaryCopyInsert();
+			binaryCopySelect();
+
 			/***** テーブルの削除 *****/
-			//dropTable();
+			dropTable();
+
+			Console.WriteLine("終了しました。");
+			Console.ReadKey();
 		}
 
 		#region 接続
@@ -230,7 +237,7 @@ namespace PostgreSQL
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			// 「CREATE TABLE」の後にある「IF NOT EXISTS」が存在しない時だけ「CREATE TABLE」が実行され例外が発生しない
-			using NpgsqlCommand cmd = new("CREATE TABLE IF NOT EXISTS data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE IF NOT EXISTS data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer);", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -250,7 +257,7 @@ namespace PostgreSQL
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (name)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (name);", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -313,7 +320,7 @@ namespace PostgreSQL
 
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY RANGE (numeric)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY RANGE (numeric);", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -384,7 +391,7 @@ namespace PostgreSQL
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (date_part('year', time))", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(time timestamp DEFAULT clock_timestamp(), name text, numeric integer) PARTITION BY LIST (date_part('year', time));", con);
 			try
 			{
 				_ = cmd.ExecuteNonQuery();
@@ -451,7 +458,7 @@ namespace PostgreSQL
 			newTable1();
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new($"INSERT INTO data(name, numeric) VALUES ({insertName}, {insertNumeric})", con);
+			using NpgsqlCommand cmd = new($"INSERT INTO data(name, numeric) VALUES ({insertName}, {insertNumeric});", con);
 			int result = cmd.ExecuteNonQuery();
 		}
 
@@ -465,7 +472,7 @@ namespace PostgreSQL
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			// SQLインジェクション対策
-			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
+			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric);", con);
 			// 単発ならこれが簡単
 			_ = cmd.Parameters.AddWithValue("insert_name", "a");
 			_ = cmd.Parameters.AddWithValue("insert_numeric", 1);
@@ -486,7 +493,7 @@ namespace PostgreSQL
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			// SQLインジェクション対策
-			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric)", con);
+			using NpgsqlCommand cmd = new("INSERT INTO data(name, numeric) VALUES (@insert_name, @insert_numeric);", con);
 			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
 			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
 			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
@@ -508,7 +515,7 @@ namespace PostgreSQL
 			List<bool> input = new() { true, false, true };
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new("CREATE TABLE data(result boolean[])", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(result boolean[]);", con);
 			_ = cmd.ExecuteNonQuery();
 			// 標準的なINSERT
 			cmd.CommandText = $"INSERT INTO data(result) VALUES (ARRAY[{input[0]}, {input[1]}, {input[2]}]);";
@@ -537,7 +544,7 @@ namespace PostgreSQL
 		{
 			// テーブルを作る
 			newTable1();
-			// データをINSERTする
+			// データをSELECTする
 			listData();
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
@@ -708,7 +715,7 @@ namespace PostgreSQL
 			// テーブルを作る
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlCommand cmd = new("CREATE TABLE data(real_data real, double_data double precision)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(real_data real, double_data double precision);", con);
 			_ = cmd.ExecuteNonQuery();
 			// データをINSERTする
 			cmd.CommandText = "INSERT INTO data(real_data, double_data) VALUES (1.1, 1.1);";
@@ -759,7 +766,7 @@ namespace PostgreSQL
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			// テーブルを作る
-			using NpgsqlCommand cmd = new("CREATE TABLE data(result boolean)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE data(result boolean);", con);
 			_ = cmd.ExecuteNonQuery();
 			// データを文字でINSERTする
 			cmd.CommandText = "INSERT INTO data(result) VALUES ('true');";
@@ -812,7 +819,7 @@ namespace PostgreSQL
 			using NpgsqlTransaction tran = con.BeginTransaction();
 			try
 			{
-				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer);", con);
 				_ = cmd.ExecuteNonQuery();
 				// データをINSERTする
 				cmd.CommandText = "INSERT INTO data(name, numeric) VALUES ('a', 1);";
@@ -840,7 +847,7 @@ namespace PostgreSQL
 			using NpgsqlTransaction tran = con.BeginTransaction();
 			try
 			{
-				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+				using NpgsqlCommand cmd = new("CREATE TABLE data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer);", con);
 				cmd.Transaction = tran;
 				_ = cmd.ExecuteNonQuery();
 				// データをINSERTする
@@ -867,7 +874,7 @@ namespace PostgreSQL
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			using NpgsqlTransaction tran = con.BeginTransaction();
-			using NpgsqlCommand cmd = new("CREATE TABLE IF NOT EXISTS data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer)", con);
+			using NpgsqlCommand cmd = new("CREATE TABLE IF NOT EXISTS data(id serial PRIMARY KEY, time timestamp DEFAULT clock_timestamp(), name text, numeric integer);", con);
 			_ = cmd.ExecuteNonQuery();
 			for (int i = 0; i < 1000; i++)
 			{
@@ -1006,10 +1013,10 @@ namespace PostgreSQL
 			using DataTable dt = new();
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlDataAdapter adp = new("SELECT * FROM data;", con);
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
 			// これでもOK
-			//using NpgsqlDataAdapter adp = new("SELECT * FROM data;", "Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
-			var result = adp.Fill(dt);
+			//using NpgsqlDataAdapter nda = new("SELECT * FROM data;", "Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			var result = nda.Fill(dt);
 			Console.WriteLine($"{dt.Columns[0].ColumnName},{dt.Columns[1].ColumnName},{dt.Columns[2].ColumnName},{dt.Columns[3].ColumnName}");
 			for (int i = 0; i < dt.Rows.Count; i++)
 			{
@@ -1025,8 +1032,8 @@ namespace PostgreSQL
 			using DataTable dt = new();
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlDataAdapter adp = new("SELECT name FROM data;", con);
-			var result = adp.Fill(dt);
+			using NpgsqlDataAdapter nda = new("SELECT name FROM data;", con);
+			var result = nda.Fill(dt);
 			// 取得可能なカラム数は「dt.Columns.Count」で取得可能
 			Console.WriteLine($"{dt.Columns[0].ColumnName}");
 			for (int i = 0; i < dt.Rows.Count; i++)
@@ -1043,8 +1050,8 @@ namespace PostgreSQL
 			using DataTable dt = new();
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using NpgsqlDataAdapter adp = new("SELECT * FROM data WHERE name = 'a';", con);
-			var result = adp.Fill(dt);
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data WHERE name = 'a';", con);
+			var result = nda.Fill(dt);
 			Console.WriteLine($"{dt.Columns[0].ColumnName},{dt.Columns[1].ColumnName},{dt.Columns[2].ColumnName},{dt.Columns[3].ColumnName}");
 			for (int i = 0; i < dt.Rows.Count; i++)
 			{
@@ -1070,7 +1077,7 @@ namespace PostgreSQL
 			// データベースにINSERTするNpgsqlCommandを追加
 			using NpgsqlCommand insertCommand = new();
 			insertCommand.Connection = con;
-			insertCommand.CommandText = "INSERT INTO data(name, numeric) VALUES(@Name, @Numeric)";
+			insertCommand.CommandText = "INSERT INTO data(name, numeric) VALUES(@Name, @Numeric);";
 			// 「name」をINSERTするNpgsqlParameterを作成して追加
 			NpgsqlParameter insertName = new();
 			insertName.ParameterName = "@Name";
@@ -1109,7 +1116,6 @@ namespace PostgreSQL
 			addRow[dt.Columns[3].ColumnName] = 3;
 			dt.Rows.Add(addRow);
 			// NpgsqlCommandBuilderを使うとカラム名「time」の自動時刻挿入「timestamp DEFAULT clock_timestamp()」がnullとなる。
-			// NpgsqlCommandBuilderで生成されたクエリを見ると「INSERT INTO "db_PostgreTest"."public"."data" ("time", "name", "numeric") VALUES (@p1, @p2, @p3)」
 			using NpgsqlCommandBuilder cb = new(nda);
 			try
 			{
@@ -1119,7 +1125,7 @@ namespace PostgreSQL
 			{
 				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
 			}
-			// これで実行されているクエリ文が分かる
+			// NpgsqlCommandBuilderで生成されたクエリを見ると「INSERT INTO "db_PostgreTest"."public"."data" ("time", "name", "numeric") VALUES (@p1, @p2, @p3)」
 			string str = cb.GetInsertCommand().CommandText;
 		}
 
@@ -1167,7 +1173,7 @@ namespace PostgreSQL
 			// データベースにUPDATEするNpgsqlCommandを追加
 			using NpgsqlCommand updateCommand = new();
 			updateCommand.Connection = con;
-			updateCommand.CommandText = "UPDATE data SET Numeric = @Numeric WHERE id = @id";
+			updateCommand.CommandText = "UPDATE data SET numeric = @numeric WHERE id = @id;";
 			// 「id」を条件としてUPDATするNpgsqlParameterを作成して追加
 			NpgsqlParameter updateId = new();
 			updateId.ParameterName = "@id";
@@ -1175,7 +1181,7 @@ namespace PostgreSQL
 			_ = updateCommand.Parameters.Add(updateId);
 			// UPDATEする「numeric」のNpgsqlParameterを作成して追加
 			NpgsqlParameter updateNumeric = new();
-			updateNumeric.ParameterName = "@Numeric";
+			updateNumeric.ParameterName = "@numeric";
 			updateNumeric.SourceColumn = "numeric";
 			_ = updateCommand.Parameters.Add(updateNumeric);
 			// NpgsqlDataAdapterのInsertCommandに追加
@@ -1236,7 +1242,7 @@ namespace PostgreSQL
 			{
 				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
 			}
-			// これで実行されているクエリ文が分かる「UPDATE "db_PostgreTest"."public"."data" SET "name" = @p1, "numeric" = @p2 WHERE (("id" = @p3) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))"」
+			// これで実行されているクエリ文が分かる「UPDATE "db_PostgreTest"."public"."data" SET "name" = @p1, "numeric" = @p2 WHERE (("id" = @p3) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))」
 			string str = cb.GetUpdateCommand().CommandText;
 		}
 
@@ -1252,11 +1258,11 @@ namespace PostgreSQL
 			var result = nda.Fill(dt);
 			// データを削除
 			dt.Rows[0].Delete();
-			// データベースにUPDATEするNpgsqlCommandを追加
+			// データベースにDELETEするNpgsqlCommandを追加
 			using NpgsqlCommand deleteCommand = new();
 			deleteCommand.Connection = con;
-			deleteCommand.CommandText = "DELETE FROM data WHERE id = @id";
-			// 「id」を条件としてUPDATするNpgsqlParameterを作成して追加
+			deleteCommand.CommandText = "DELETE FROM data WHERE id = @id;";
+			// 「id」を条件としてDELETEするNpgsqlParameterを作成して追加
 			NpgsqlParameter deleteId = new();
 			deleteId.ParameterName = "@id";
 			deleteId.SourceColumn = "id";
@@ -1294,10 +1300,132 @@ namespace PostgreSQL
 			{
 				// INSERT、UPDATE、DELETE の各ステートメントを実行しようとしましたが、影響を受けたレコードがない
 			}
-			// これで実行されているクエリ文が分かる「DELETE FROM "db_PostgreTest"."public"."data" WHERE (("id" = @p1) AND ((@p2 = 1 AND "time" IS NULL) OR ("time" = @p3)) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))"」
+			// これで実行されているクエリ文が分かる「DELETE FROM "db_PostgreTest"."public"."data" WHERE (("id" = @p1) AND ((@p2 = 1 AND "time" IS NULL) OR ("time" = @p3)) AND ((@p4 = 1 AND "name" IS NULL) OR ("name" = @p5)) AND ((@p6 = 1 AND "numeric" IS NULL) OR ("numeric" = @p7)))」
 			string str = cb.GetDeleteCommand().CommandText;
 		}
+		#endregion
 
+		#region Binary copy
+		/// <summary>
+		/// バイナリーコピーで書き込み
+		/// </summary>
+		static void binaryCopyInsert()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			using NpgsqlBinaryImporter writer = con.BeginBinaryImport("COPY data (name, numeric) FROM STDIN (FORMAT BINARY)");
+			for (int i = 0; i < 100000; i++)
+			{
+				try
+				{
+					// 1つの行の書き込みを開始し、列を書き込む前に起動しなければなりません。
+					writer.StartRow();
+					// 書き込む値と型
+					writer.Write($"name{i}", NpgsqlDbType.Text);
+					writer.Write(i, NpgsqlDbType.Integer);
+					
+				}
+				catch (InvalidOperationException)
+				{
+					// BeginBinaryImportで２つのカラムを指定しているのにStartRowメソッド以降Writeメソッドが不足して次のStartRowメソッドを実行すると例外「InvalidOperationException」が発生
+				}
+			}
+			// コピー開始
+			try
+			{
+				writer.Complete();
+			}
+			catch (PostgresException)
+			{
+				// 違う型のデータを書き込もうとするとCompleteメソッドで例外「PostgresException」が発生
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// バイナリーコピーで読み込み
+		/// </summary>
+		static void binaryCopySelect()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlBinaryExporter reader = con.BeginBinaryExport("COPY data (name, numeric) TO STDOUT (FORMAT BINARY)");
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			while (reader.StartRow() != -1)
+			{
+				try
+				{
+					string s = reader.Read<string>(NpgsqlDbType.Text);
+					int i = reader.Read<int>(NpgsqlDbType.Integer);
+				}
+				catch (NullReferenceException)
+				{
+					// 型が違うと例外が発生
+				}
+				catch (InvalidCastException)
+				{
+					// Readメソッドで取得したデータがnullだとキャストの例外が発生
+					// reader.Read<string>(NpgsqlDbType.Integer);などの型が不一致だと例外が発生
+				}
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+		#endregion
+
+		#region Text copy
+		/// <summary>
+		/// テキストコピーで書き込み
+		/// </summary>
+		static void textCopyInsert()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			try
+			{
+				// 実際にデータベースに書き込まれるのはusingを抜けたタイミング
+				using System.IO.TextWriter writer = con.BeginTextImport("COPY data (name, numeric) FROM STDIN WITH csv");
+				for (int i = 0; i < 100000; i++)
+				{
+					// BeginTextImportの引数文字列に「WITH csv」がない場合は区切りはタブ、ある場合はカンマ 改行は\n
+					writer.Write($"name{i},{i}\n");
+				}
+			}
+			catch (PostgresException)
+			{
+				// 無効なデータ(integerに数値変換できないテキストなど)だと例外が発生
+			}
+			
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// バイナリーコピーで読み込み
+		/// </summary>
+		static void textCopySelect()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using System.IO.TextReader reader = con.BeginTextExport("COPY data(name, numeric) TO STDOUT WITH csv");
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			string str;
+			int count = 0;
+			while ((str = reader.ReadLine()) != null)
+			{
+				count++;
+				string[] selectData = str.Split(',');
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
 		#endregion
 
 		/// <summary>
