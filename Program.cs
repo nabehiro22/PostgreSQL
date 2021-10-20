@@ -1,11 +1,14 @@
-﻿using Npgsql;
+﻿using Microsoft.VisualBasic;
+using Npgsql;
 using NpgsqlTypes;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -16,6 +19,8 @@ namespace PostgreSQL
 	{
 		static void Main(string[] args)
 		{
+			Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
 			/***** 接続 *****/
 			// 通常の接続
 			//open1();
@@ -134,12 +139,14 @@ namespace PostgreSQL
 			//dataAdapterDelete1(); 
 			//dataAdapterDelete2();
 
-			newTable2();
-			binaryCopyInsert();
-			binaryCopySelect();
+			/***** コピー機能の実験 *****/
+			//binaryCopyInsert();
+			//binaryCopySelect();
+			//textCopyInsert();
+			//textCopySelect();
 
 			/***** テーブルの削除 *****/
-			dropTable();
+			//dropTable();
 
 			Console.WriteLine("終了しました。");
 			Console.ReadKey();
@@ -1390,39 +1397,68 @@ namespace PostgreSQL
 			try
 			{
 				// 実際にデータベースに書き込まれるのはusingを抜けたタイミング
-				using System.IO.TextWriter writer = con.BeginTextImport("COPY data (name, numeric) FROM STDIN WITH csv");
+				// BeginTextImportの引数文字列に「WITH csv」がない場合は区切りはタブ、ある場合はカンマ 改行は\n
+				using TextWriter writer = con.BeginTextImport("COPY data (name, numeric) FROM STDIN WITH csv");
+				writer.NewLine = "\n";
+
+				//***** 変数を書き込む *****/
 				for (int i = 0; i < 100000; i++)
 				{
-					// BeginTextImportの引数文字列に「WITH csv」がない場合は区切りはタブ、ある場合はカンマ 改行は\n
-					writer.Write($"name{i},{i}\n");
+					writer.WriteLine($"name{i},{i}");
 				}
+
+				/***** csvファイルを1行づつ読み込みならが書き込む *****/
+				// ReadToEndは現在の位置がストリームの末尾である場合は、空の文字列("") が返されます。
+				//using StreamReader reader = new("test.csv", Encoding.GetEncoding("Shift_JIS"));
+				//string str;
+				//while ((str = reader.ReadLine()) != null)
+				//{
+				//	writer.WriteLine(str.Replace("\r\n", ""));
+				//}
+
+				/***** csvファイルをまとめて読み込んで書き込む *****/
+				//using StreamReader reader = new("test.csv", Encoding.GetEncoding("Shift_JIS"));
+				//writer.Write(reader.ReadToEnd().Replace("\r", ""));
 			}
 			catch (PostgresException)
 			{
 				// 無効なデータ(integerに数値変換できないテキストなど)だと例外が発生
 			}
-			
 			sw.Stop();
 			Console.WriteLine($"{sw.Elapsed}");
 		}
 
 		/// <summary>
-		/// バイナリーコピーで読み込み
+		/// テキストコピーで読み込み
 		/// </summary>
 		static void textCopySelect()
 		{
 			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
-			using System.IO.TextReader reader = con.BeginTextExport("COPY data(name, numeric) TO STDOUT WITH csv");
+			using TextReader reader = con.BeginTextExport("COPY data(name, numeric) TO STDOUT WITH csv");
 			System.Diagnostics.Stopwatch sw = new();
 			sw.Start();
+
+			/***** 変数として読み込む *****/
+			List<string> selectData = new();
 			string str;
-			int count = 0;
 			while ((str = reader.ReadLine()) != null)
 			{
-				count++;
-				string[] selectData = str.Split(',');
+				selectData.Add(str);
 			}
+
+			/***** csvファイルを1行づつ書き込む *****/
+			//using StreamWriter writer = new("test11.csv", false, Encoding.GetEncoding("Shift_JIS"));
+			//string str;
+			//while ((str = reader.ReadLine()) != null)
+			//{
+			//	writer.WriteLine(str);
+			//}
+
+			/***** csvファイルをまとめて書き込む *****/
+			//using StreamWriter writer = new("test.csv", false, Encoding.GetEncoding("Shift_JIS"));
+			//writer.Write(reader.ReadToEnd().Replace("\n", "\r\n"));
+
 			sw.Stop();
 			Console.WriteLine($"{sw.Elapsed}");
 		}
