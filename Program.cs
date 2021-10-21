@@ -70,7 +70,6 @@ namespace PostgreSQL
 			// データを追加
 			//listDateData();
 
-
 			/***** INSERTのやり方 *****/
 			// シンプルなINSERTのやり方
 			//insert1("a", 1);
@@ -83,7 +82,6 @@ namespace PostgreSQL
 
 			// 配列(SELECTの例を含む)
 			//insert4();
-
 
 			/***** SELECTのやり方 *****/
 			// シンプルなSELECTのやり方
@@ -144,6 +142,16 @@ namespace PostgreSQL
 			//binaryCopySelect();
 			//textCopyInsert();
 			//textCopySelect();
+
+
+			for (int i = 0; i < 12; i++)
+			{
+				newTable2();
+				binaryCopyInsert();
+				benchmark_delete7();
+				dropTable();
+			}
+
 
 			/***** テーブルの削除 *****/
 			//dropTable();
@@ -1463,6 +1471,693 @@ namespace PostgreSQL
 			Console.WriteLine($"{sw.Elapsed}");
 		}
 		#endregion
+
+		#region benchmark INSERT
+		/// <summary>
+		/// 普通のINSERTを連続
+		/// </summary>
+		static void benchmark_insert1()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			System.Diagnostics.Stopwatch sw = new();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.CommandText = $"INSERT INTO data(name, numeric) VALUES ('name_{i}', {i});";
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// INSERTデータはパラメータ
+		/// </summary>
+		static void benchmark_insert2()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new($"INSERT INTO data(name, numeric) VALUES(@insert_name, @insert_numeric);", con);
+			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["insert_name"].Value = $"name_{i}";
+				cmd.Parameters["insert_numeric"].Value = i;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// INSERTデータはパラメータにして「Max Auto Prepare」を設定
+		/// </summary>
+		static void benchmark_insert3()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new($"INSERT INTO data(name, numeric) VALUES(@insert_name, @insert_numeric);", con);
+			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["insert_name"].Value = $"name_{i}";
+				cmd.Parameters["insert_numeric"].Value = i;
+				_ = cmd.ExecuteNonQuery();
+			}
+			tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// Prepareメソッドを使用したINSERT
+		/// </summary>
+		static void benchmark_insert4()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new($"INSERT INTO data(name, numeric) VALUES(@insert_name, @insert_numeric);", con);
+			// NpgsqlCommandのParametersに新しいNpgsqlParameterを作成
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_name", DbType.String));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("insert_numeric", DbType.Int32));
+			cmd.Prepare();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["insert_name"].Value = $"name_{i}";
+				cmd.Parameters["insert_numeric"].Value = i;
+				_ = cmd.ExecuteNonQuery();
+			}
+			sw.Stop();
+			//tran.Commit();
+			//Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// INSERTはNpgsqlDataAdapterにクエリ文
+		/// </summary>
+		static void benchmark_insert5()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT name, numeric FROM data;", con);
+			var result = nda.Fill(dt);
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			for (int i = 0; i < 100000; i++)
+			{
+				DataRow addRow = dt.NewRow();
+				addRow[dt.Columns[0].ColumnName] = $"name_{i}";
+				addRow[dt.Columns[1].ColumnName] = i;
+				dt.Rows.Add(addRow);
+			}
+			// データベースにINSERTするNpgsqlCommandを追加
+			using NpgsqlCommand insertCommand = new();
+			insertCommand.Connection = con;
+			insertCommand.CommandText = "INSERT INTO data(name, numeric) VALUES(@Name, @Numeric);";
+			// 「name」をINSERTするNpgsqlParameterを作成して追加
+			NpgsqlParameter insertName = new();
+			insertName.ParameterName = "@Name";
+			insertName.SourceColumn = "name";
+			_ = insertCommand.Parameters.Add(insertName);
+			// 「numeric」をINSERTするNpgsqlParameterを作成して追加
+			NpgsqlParameter insertNumeric = new();
+			insertNumeric.ParameterName = "@Numeric";
+			insertNumeric.SourceColumn = "numeric";
+			_ = insertCommand.Parameters.Add(insertNumeric);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.InsertCommand = insertCommand;
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			result = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// INSERTはNpgsqlDataAdapterにNpgsqlCommandBuilder
+		/// </summary>
+		static void benchmark_insert6()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT name, numeric FROM data;", con);
+			_ = nda.Fill(dt);
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			for (int i = 0; i < 100000; i++)
+			{
+				DataRow addRow = dt.NewRow();
+				addRow[dt.Columns[0].ColumnName] = $"name_{i}";
+				addRow[dt.Columns[1].ColumnName] = i;
+				dt.Rows.Add(addRow);
+			}
+			using NpgsqlCommandBuilder cb = new(nda);
+			// これで実行されているクエリ文が分かる「INSERT INTO \"db_PostgreTest\".\"public\".\"data\" (\"name\", \"numeric\") VALUES (@p1, @p2)」
+			//string str = cb.GetInsertCommand().CommandText;
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			_ = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+		#endregion
+
+		#region benchmark SELECT
+		/// <summary>
+		/// SELECTでWHWREを毎回指定
+		/// </summary>
+		static void benchmark_select1()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 1; i < 100001; i++)
+			{
+				cmd.CommandText = $"SELECT * FROM data WHERE id = {i};";
+				using NpgsqlDataReader rd = cmd.ExecuteReader();
+				rd.Read();
+				selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// SELECTの条件はパラメータで
+		/// </summary>
+		static void benchmark_select2()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 1; i < 100001; i++)
+			{
+				cmd.Parameters["id"].Value = i;
+				using NpgsqlDataReader rd = cmd.ExecuteReader();
+				rd.Read();
+				selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// SELECTの条件はパラメータでMax Auto Prepareを使用
+		/// </summary>
+		static void benchmark_select3()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 1; i < 100001; i++)
+			{
+				cmd.Parameters["id"].Value = i;
+				using NpgsqlDataReader rd = cmd.ExecuteReader();
+				rd.Read();
+				selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// Prepareメソッドを使用したSELECT
+		/// </summary>
+		static void benchmark_select4()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			cmd.Prepare();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 1; i < 100001; i++)
+			{
+				cmd.Parameters["id"].Value = i;
+				using NpgsqlDataReader rd = cmd.ExecuteReader();
+				rd.Read();
+				selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// SELECTでWHWREの条件なし
+		/// </summary>
+		static void benchmark_select5()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			using NpgsqlDataReader rd = cmd.ExecuteReader();
+			while (rd.Read())
+			{
+				selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+			}
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// SELECTはNpgsqlDataAdapter
+		/// </summary>
+		static void benchmark_select6()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			_ = nda.Fill(dt);
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+		#endregion
+
+		#region benchmark UPDATE
+		/// <summary>
+		/// クエリ文で1行づつUPDATE
+		/// </summary>
+		static void benchmark_update1()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
+			using (NpgsqlDataReader rd = cmd.ExecuteReader())
+			{
+				while (rd.Read())
+				{
+					selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+				}
+			}
+			// SELECTしたデータを更新
+			for (int i = 0; i < 100000; i++)
+			{
+				selectData[i] = new(selectData[i].id, selectData[i].time, selectData[i].name.Replace("name", "1name"), selectData[i].numeric);
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.CommandText = $"UPDATE data SET name = '{selectData[i].name}' WHERE id = {i + 1};";
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// UPDATEの条件はパラメータで
+		/// </summary>
+		static void benchmark_update2()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
+			using (NpgsqlDataReader rd = cmd.ExecuteReader())
+			{
+				while (rd.Read())
+				{
+					selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+				}
+			}
+			// SELECTしたデータを更新
+			for (int i = 0; i < 100000; i++)
+			{
+				selectData[i] = new(selectData[i].id, selectData[i].time, selectData[i].name.Replace("name", "1name"), selectData[i].numeric);
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			cmd.CommandText = "UPDATE data SET name = @name WHERE id = @id;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("name", DbType.String));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				cmd.Parameters["name"].Value = selectData[i].name;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// UPDATEの条件はパラメータでMax Auto Prepareを使用
+		/// </summary>
+		static void benchmark_update3()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
+			using (NpgsqlDataReader rd = cmd.ExecuteReader())
+			{
+				while (rd.Read())
+				{
+					selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+				}
+			}
+			// SELECTしたデータを更新
+			for (int i = 0; i < 100000; i++)
+			{
+				selectData[i] = new(selectData[i].id, selectData[i].time, selectData[i].name.Replace("name", "1name"), selectData[i].numeric);
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			cmd.CommandText = "UPDATE data SET name = @name WHERE id = @id;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("name", DbType.String));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				cmd.Parameters["name"].Value = selectData[i].name;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// Prepareメソッドを使用したUPDATE
+		/// </summary>
+		static void benchmark_update4()
+		{
+			List<(int id, DateTime time, string name, int numeric)> selectData = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
+			using (NpgsqlDataReader rd = cmd.ExecuteReader())
+			{
+				while (rd.Read())
+				{
+					selectData.Add(new(rd.GetInt32("id"), rd.GetDateTime("time"), rd.GetString("name"), rd.GetInt32("numeric")));
+				}
+			}
+			// SELECTしたデータを更新
+			for (int i = 0; i < 100000; i++)
+			{
+				selectData[i] = new(selectData[i].id, selectData[i].time, selectData[i].name.Replace("name", "1name"), selectData[i].numeric);
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			cmd.CommandText = "UPDATE data SET name = @name WHERE id = @id;";
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			_ = cmd.Parameters.Add(new NpgsqlParameter("name", DbType.String));
+			cmd.Prepare();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				cmd.Parameters["name"].Value = selectData[i].name;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// UPDATEはNpgsqlDataAdapterにクエリ文
+		/// </summary>
+		static void benchmark_update5()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			_ = nda.Fill(dt);
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				dt.Rows[i][2] = $"{i}{dt.Rows[i][2]}";
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			// データベースにUPDATEするNpgsqlCommandを追加
+			using NpgsqlCommand updateCommand = new();
+			updateCommand.Connection = con;
+			updateCommand.CommandText = "UPDATE data SET name = @name WHERE id = @id;";
+			// 「name」をUPDATEするNpgsqlParameterを作成して追加
+			NpgsqlParameter updateName = new();
+			updateName.ParameterName = "@Name";
+			updateName.SourceColumn = "name";
+			_ = updateCommand.Parameters.Add(updateName);
+			// 条件となるidのNpgsqlParameterを作成して追加
+			NpgsqlParameter updateId = new();
+			updateId.ParameterName = "@id";
+			updateId.SourceColumn = "id";
+			_ = updateCommand.Parameters.Add(updateId);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.UpdateCommand = updateCommand;
+			_ = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// UPDATEはNpgsqlDataAdapterにNpgsqlCommandBuilder
+		/// </summary>
+		static void benchmark_update6()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			_ = nda.Fill(dt);
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			for (int i = 0; i < 100000; i++)
+			{
+				dt.Rows[i][2] = $"{i}{dt.Rows[i][2]}";
+			}
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommandBuilder cb = new(nda);
+			_ = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+		#endregion
+
+		#region benchmark DELETE
+		/// <summary>
+		/// クエリ文で1行づつ削除
+		/// </summary>
+		static void benchmark_delete1()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new();
+			cmd.Connection = con;
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			// 指定したidのデータを削除
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.CommandText = $"DELETE FROM data WHERE id = {i};";
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// DELETEの条件はパラメータで
+		/// </summary>
+		static void benchmark_delete2()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new("DELETE FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			// 指定したidのデータを削除
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// DELETEの条件はパラメータでMax Auto Prepareを使用
+		/// </summary>
+		static void benchmark_delete3()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new("DELETE FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			// 指定したidのデータを削除
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// Prepareメソッドを使用したDELETE
+		/// </summary>
+		static void benchmark_delete4()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommand cmd = new("DELETE FROM data WHERE id = @id;", con);
+			_ = cmd.Parameters.Add(new NpgsqlParameter("id", DbType.Int32));
+			cmd.Prepare();
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			// 指定したidのデータを削除
+			for (int i = 0; i < 100000; i++)
+			{
+				cmd.Parameters["id"].Value = i + 1;
+				_ = cmd.ExecuteNonQuery();
+			}
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// DELETEはNpgsqlDataAdapterにクエリ文
+		/// </summary>
+		static void benchmark_delete5()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			_ = nda.Fill(dt);
+			// Deleteメソッドは削除対象行をマークするだけで、これをデータベースに反映させる
+			for (int i = 0; i < 100000; i++)
+			{
+				dt.Rows[i].Delete();
+			}
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			// データベースにUPDATEするNpgsqlCommandを追加
+			using NpgsqlCommand deleteCommand = new();
+			deleteCommand.Connection = con;
+			deleteCommand.CommandText = "DELETE FROM data WHERE id = @id;";
+			// 条件となるidのNpgsqlParameterを作成して追加
+			NpgsqlParameter deleteId = new();
+			deleteId.ParameterName = "@id";
+			deleteId.SourceColumn = "id";
+			_ = deleteCommand.Parameters.Add(deleteId);
+			// NpgsqlDataAdapterのInsertCommandに追加
+			nda.DeleteCommand = deleteCommand;
+			_ = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// DELETEはNpgsqlDataAdapterにクエリ文
+		/// </summary>
+		static void benchmark_delete6()
+		{
+			using DataTable dt = new();
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			con.Open();
+			using NpgsqlDataAdapter nda = new("SELECT * FROM data;", con);
+			_ = nda.Fill(dt);
+			// Deleteメソッドは削除対象行をマークするだけで、これをデータベースに反映させる
+			for (int i = 0; i < 100000; i++)
+			{
+				dt.Rows[i].Delete();
+			}
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			//using NpgsqlTransaction tran = con.BeginTransaction();
+			using NpgsqlCommandBuilder cb = new(nda);
+			_ = nda.Update(dt);
+			//tran.Commit();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+
+		/// <summary>
+		/// DELETEでWHEREの条件なし
+		/// </summary>
+		static void benchmark_delete7()
+		{
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
+			con.Open();
+			using NpgsqlCommand cmd = new("DELETE FROM data;", con);
+			System.Diagnostics.Stopwatch sw = new();
+			sw.Start();
+			_ = cmd.ExecuteNonQuery();
+			sw.Stop();
+			Console.WriteLine($"{sw.Elapsed}");
+		}
+		#endregion
+
 
 		/// <summary>
 		/// テーブルを削除
