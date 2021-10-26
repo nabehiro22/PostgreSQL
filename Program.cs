@@ -143,15 +143,32 @@ namespace PostgreSQL
 			//textCopyInsert();
 			//textCopySelect();
 
-
-			for (int i = 0; i < 12; i++)
-			{
-				newTable2();
-				binaryCopyInsert();
-				benchmark_delete7();
-				dropTable();
-			}
-
+			/***** 速度実験 *****/
+			//benchmark_insert1();
+			//benchmark_insert2();
+			//benchmark_insert3();
+			//benchmark_insert4();
+			//benchmark_insert5();
+			//benchmark_insert6();
+			//benchmark_select1();
+			//benchmark_select2();
+			//benchmark_select3();
+			//benchmark_select4();
+			//benchmark_select5();
+			//benchmark_select6();
+			//benchmark_update1();
+			//benchmark_update2();
+			//benchmark_update3();
+			//benchmark_update4();
+			//benchmark_update5();
+			//benchmark_update6();
+			//benchmark_delete1();
+			//benchmark_delete2();
+			//benchmark_delete3();
+			//benchmark_delete4();
+			//benchmark_delete5();
+			//benchmark_delete6();
+			//benchmark_delete7();
 
 			/***** テーブルの削除 *****/
 			//dropTable();
@@ -1781,7 +1798,7 @@ namespace PostgreSQL
 		static void benchmark_update1()
 		{
 			List<(int id, DateTime time, string name, int numeric)> selectData = new();
-			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public; Max Auto Prepare=1");
+			using NpgsqlConnection con = new("Server=127.0.0.1; Port=5432; User Id=test_user; Password=pass; Database=db_PostgreTest; SearchPath=public");
 			con.Open();
 			using NpgsqlCommand cmd = new("SELECT * FROM data;", con);
 			using (NpgsqlDataReader rd = cmd.ExecuteReader())
