@@ -2021,7 +2021,7 @@ namespace PostgreSQL
 			// 指定したidのデータを削除
 			for (int i = 0; i < 100000; i++)
 			{
-				cmd.CommandText = $"DELETE FROM data WHERE id = {i};";
+				cmd.CommandText = $"DELETE FROM data WHERE id = {i + 1};";
 				_ = cmd.ExecuteNonQuery();
 			}
 			//tran.Commit();
@@ -2135,7 +2135,7 @@ namespace PostgreSQL
 		}
 
 		/// <summary>
-		/// DELETEはNpgsqlDataAdapterにクエリ文
+		/// DELETEはNpgsqlDataAdapterにNpgsqlCommandBuilder
 		/// </summary>
 		static void benchmark_delete6()
 		{
